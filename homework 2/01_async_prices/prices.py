@@ -1,4 +1,4 @@
-"""Сравнение цен: по очереди, конкурентно и с таймаутом.
+"""Сравнение цен: по очереди, конкурентно, с таймаутом и с лимитом запросов.
 
 Для сравнения оставила все варианты, чтобы было видно разницу во времени.
 """
@@ -54,15 +54,22 @@ async def get_prices_with_timeout(shops: list[str], timeout: float = 1.0) -> lis
     return await asyncio.gather(*(get_price_or_none(shop, timeout) for shop in shops))
 
 
-# ---------- Задача 1.4 (дополнительная) ----------
+# 1.4. Ограничение числа запросов
 
 
 async def get_prices_limited(shops: list[str], limit: int = 3) -> list[int]:
-    """Запросить цены одновременно, но не больше limit запросов в один момент.
+    """Не больше limit запросов одновременно, остальные ждут своей очереди."""
+    if limit < 1:
+        raise ValueError("limit должен быть >= 1")
 
-    Подсказка: asyncio.Semaphore(limit) и async with внутри вспомогательной функции.
-    """
-    raise NotImplementedError
+    # Семафор общий для всех магазинов в этом вызове.
+    semaphore = asyncio.Semaphore(limit)
+
+    async def fetch_limited(shop: str) -> int:
+        async with semaphore:
+            return await fetch_price(shop)
+
+    return await asyncio.gather(*(fetch_limited(shop) for shop in shops))
 
 
 if __name__ == "__main__":
